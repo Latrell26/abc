@@ -9,8 +9,8 @@ SEO Audit Dashboard — AI-powered tool that audits a website's SEO health and e
 ## Stack
 - Node.js (LTS), Git
 - Next.js / React + Tailwind CSS, Recharts
-- Google PageSpeed Insights API, Cheerio (HTML scraping)
-- Supabase (PostgreSQL), Claude API
+- Google PageSpeed Insights API, Cheerio (HTML scraping), Claude API
+- No persistence in MVP (audits are ephemeral); Supabase deferred to Planned
 
 ## Commands
 - npm run dev       # start dev server
@@ -20,10 +20,10 @@ SEO Audit Dashboard — AI-powered tool that audits a website's SEO health and e
 
 ## Agents
 - frontend (React/Next.js, Tailwind, Recharts) — .opencode/agents/frontend.md
-- backend (API routes, scraping, Supabase, AI layer) — .opencode/agents/backend.md
+- backend (API routes, scraping, AI layer) — .opencode/agents/backend.md
 
 ## Conventions
 - Commits follow Conventional Commits
 - No secrets committed; API keys live in .env.local
-- Keep README accurate and up to date with repo purpose
+- Keep README and SPEC.md accurate and up to date with repo purpose
 - Keep subagents' model, permissions, and responsibilities accurate

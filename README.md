@@ -2,6 +2,8 @@
 
 An AI-powered web dashboard that audits a website's SEO health and explains the results in plain language.
 
+For the product spec — target user, core flow, screens, data sources, AI architecture, and out-of-scope — see [SPEC.md](./SPEC.md).
+
 ## Commands
 
 ```bash
@@ -10,17 +12,6 @@ npm run build     # production build
 npm run lint      # lint
 npm test          # run tests
 ```
-
-## Background
-
-Most SEO audit tools return raw technical data — pass/fail lists, scores, and jargon — that's hard for non-experts to act on. This project was built as a capstone during my front-end AI engineering internship at FlyRank AI to address that gap: it runs a technical SEO audit on a given URL, then uses an AI layer to summarize the findings and suggest concrete fixes in plain language, rather than just listing raw checks.
-
-## What It Does
-
-1. A user submits a URL.
-2. The app scans the page for common technical SEO issues (title tags, meta descriptions, heading structure, alt text, canonical tags, robots.txt, sitemap.xml) and pulls a page speed score.
-3. The findings are scored and displayed on a dashboard with charts and pass/fail breakdowns.
-4. An AI assistant summarizes the top issues and recommends fixes in plain language.
 
 ## Features
 
@@ -32,10 +23,14 @@ Most SEO audit tools return raw technical data — pass/fail lists, scores, and 
 - AI-generated summary and fix recommendations
 
 **Planned:**
-- Historical audit tracking with score trends
+- Historical audit tracking with score trends (requires a persistence layer — see Out of Scope)
 - Side-by-side competitor comparison
 - AI keyword/content gap suggestions
 - Exportable PDF reports
+
+## Out of Scope
+
+Deferred features and technical non-goals — see [SPEC.md](./SPEC.md).
 
 ## Tech Stack
 
@@ -46,8 +41,8 @@ Most SEO audit tools return raw technical data — pass/fail lists, scores, and 
 | Backend | Next.js API routes |
 | SEO data | Google PageSpeed Insights API + Cheerio (HTML scraping) |
 | AI layer | Claude API |
-| Database | Supabase (PostgreSQL) |
-| Hosting | Vercel + Supabase |
+| Database | None (MVP) — audits are ephemeral |
+| Hosting | Vercel |
 
 ## Getting Started
 
@@ -63,8 +58,6 @@ npm run dev
 ## Environment Variables
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ANTHROPIC_API_KEY=
 GOOGLE_PAGESPEED_API_KEY=
 ```
