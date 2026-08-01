@@ -56,3 +56,7 @@ Explicitly deferred for the capstone MVP:
 - No persistence in the MVP; audits are ephemeral.
 - Rate limiting is handled at the platform level (Vercel Firewall WAF rule on the audit endpoint), not in app code.
 - PSI is queried on demand, one URL per audit; quota/rate-limit errors surface as friendly retry-later messages.
+
+## Why This Stack
+
+Next.js (App Router) was chosen because it gives built-in API routes for server-side scraping — Cheerio has to run server-side to avoid CORS errors when fetching arbitrary external sites — plus SSR out of the box, which matters for a dashboard that should load fast and stay crawlable itself. Tailwind keeps the UI layer fast to build without a separate design system, and Recharts was picked over heavier charting libraries since the dashboard only needs simple score cards and pass/fail visualizations, not complex custom charts. Claude API handles the plain-language summary and fix recommendations, kept deliberately separate from the deterministic scoring logic so results stay reproducible and auditable — the AI explains, it doesn't grade. Supabase and Vercel KV were considered but deferred for the MVP, since the MVP has no auth or persistence needs (see Out of Scope); Supabase remains on the roadmap for audit history and score trends.

@@ -36,7 +36,7 @@ Deferred features and technical non-goals — see [SPEC.md](./SPEC.md).
 
 | Layer | Tool |
 |---|---|
-| Frontend | React / Next.js + Tailwind CSS |
+| Frontend | React / Next.js (App Router) + Tailwind CSS |
 | Charts | Recharts |
 | Backend | Next.js API routes |
 | SEO data | Google PageSpeed Insights API + Cheerio (HTML scraping) |
