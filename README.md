@@ -2,9 +2,18 @@
 
 An AI-powered web dashboard that audits a website's SEO health and explains the results in plain language.
 
+## Commands
+
+```bash
+npm run dev       # start dev server
+npm run build     # production build
+npm run lint      # lint
+npm test          # run tests
+```
+
 ## Background
 
-Most SEO audit tools return raw technical data — pass/fail lists, scores, and jargon — that's hard for non-experts to act on. This project was built as a capstone during my front-end AI engineering internship at Flyrank AI to address that gap: it runs a technical SEO audit on a given URL, then uses an AI layer to summarize the findings and suggest concrete fixes in plain language, rather than just listing raw checks.
+Most SEO audit tools return raw technical data — pass/fail lists, scores, and jargon — that's hard for non-experts to act on. This project was built as a capstone during my front-end AI engineering internship at FlyRank AI to address that gap: it runs a technical SEO audit on a given URL, then uses an AI layer to summarize the findings and suggest concrete fixes in plain language, rather than just listing raw checks.
 
 ## What It Does
 
@@ -44,7 +53,7 @@ Most SEO audit tools return raw technical data — pass/fail lists, scores, and 
 
 ```bash
 git clone <repo-url>
-cd seo-audit-dashboard
+cd abc
 npm install
 cp .env.example .env.local
 # add your API keys
@@ -62,8 +71,8 @@ GOOGLE_PAGESPEED_API_KEY=
 
 ## Status
 
-In development — capstone project, Flyrank AI internship.
+In development — capstone project, FlyRank AI internship.
 
 ## License
 
-TBD
+MIT
