@@ -128,6 +128,9 @@ dist
 # macOS
 .DS_Store
 
+# opencode local history
+.history
+
 # opencode plugin scaffold (keep npm files and deps out of git)
 .opencode/node_modules/
 .opencode/package.json
