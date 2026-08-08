@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PlaceholderPage } from "@/components/page-placeholder";
 
 export const metadata: Metadata = {
@@ -31,6 +32,13 @@ export default function AuditLoadingPage() {
           </li>
         ))}
       </ol>
+
+      <Link
+        href="/"
+        className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+      >
+        ← Back to Home
+      </Link>
     </div>
   );
 }
