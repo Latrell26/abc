@@ -136,3 +136,5 @@ dist
 .opencode/package.json
 .opencode/package-lock.json
 .opencode/bun.lock
+
+.vercel
