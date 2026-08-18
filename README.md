@@ -56,13 +56,6 @@ cp .env.example .env.local
 npm run dev
 ```
 
-## Environment Variables
-
-```
-GEMINI_API_KEY=
-GOOGLE_PAGESPEED_API_KEY=
-```
-
 ## Status
 
 In development — capstone project, FlyRank AI internship.
