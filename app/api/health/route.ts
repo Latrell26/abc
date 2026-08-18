@@ -6,7 +6,7 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     region: process.env.VERCEL_REGION ?? "local",
     env: {
-      anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
+      geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
       psiConfigured: Boolean(process.env.GOOGLE_PAGESPEED_API_KEY),
     },
   });

@@ -21,6 +21,7 @@ npm test          # run tests
 - Overall SEO score (0–100)
 - Visual dashboard (score cards, charts, pass/fail breakdown)
 - AI-generated summary and fix recommendations
+- Streaming AI chat assistant — token-by-token summaries plus follow-up Q&A
 
 **Planned:**
 - Historical audit tracking with score trends (requires a persistence layer — see Out of Scope)
@@ -40,7 +41,7 @@ Deferred features and technical non-goals — see [SPEC.md](./SPEC.md).
 | Charts | Recharts |
 | Backend | Next.js API routes |
 | SEO data | Google PageSpeed Insights API + Cheerio (HTML scraping) |
-| AI layer | Claude API |
+| AI layer | Gemini API (free tier) via Vercel AI SDK |
 | Database | None (MVP) — audits are ephemeral |
 | Hosting | Vercel |
 
@@ -58,7 +59,7 @@ npm run dev
 ## Environment Variables
 
 ```
-ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
 GOOGLE_PAGESPEED_API_KEY=
 ```
 

@@ -15,14 +15,14 @@ Small-business owners and non-technical site owners who want to know — in plai
 1. A user submits a URL.
 2. The app scans the page for common technical SEO issues (title tags, meta descriptions, heading structure, alt text, canonical tags, robots.txt, sitemap.xml) and pulls a page speed score.
 3. The findings are scored and displayed on a dashboard with charts and pass/fail breakdowns.
-4. An AI assistant summarizes the top issues and recommends fixes in plain language.
+4. An AI chat assistant summarizes the top issues in plain language, and can be asked follow-up questions about the audit.
 
 ## Screens
 
 1. **Home / audit input** — URL input form with validation and submit.
 2. **Loading** — processing state while the audit runs (scrape → PSI → AI), with step indicators.
 3. **Results dashboard** — overall score (0–100), pass/fail breakdown by check, Recharts visualizations.
-4. **AI summary panel** — plain-language summary of top issues and prioritized fix recommendations.
+4. **AI summary chat** — a streaming chat that auto-generates a plain-language summary of the top issues on load, then answers follow-up questions (streaming token-by-token, with a Stop control).
 5. **Error states** — invalid URL, unreachable site, PSI quota/rate-limit, AI failure; each with a clear retry or next-step message.
 
 ## Data Sources
@@ -31,13 +31,13 @@ Small-business owners and non-technical site owners who want to know — in plai
 - Target page HTML via Cheerio — title, meta description, heading structure, alt text, canonical tag.
 - robots.txt and sitemap.xml fetched from the target origin.
 - Google PageSpeed Insights API — page speed scores.
-- Claude API — consumes the aggregated findings to produce the AI summary (AI layer, not a raw SEO data source).
+- Gemini API (free tier) — consumes the aggregated findings to produce the AI summary and answer follow-up questions (AI layer, not a raw SEO data source).
 
 ## Where the AI Lives
 
-- A single Claude API call in the backend audit route, executed after all deterministic checks finish.
-- Input: structured audit findings (checks, pass/fail status, scores, PSI result).
-- Output: a plain-language summary and prioritized fix recommendations.
+- A streaming Gemini model call via the Vercel AI SDK, in the chat API route, executed after the audit findings are available.
+- Input: the full conversation history (UI messages converted server-side), seeded with a system prompt containing the structured audit findings.
+- Output: a token-by-token UI message stream rendered in the client chat (supports stopping mid-stream).
 - The overall score is computed deterministically in code (rule-based), not by the AI, so results stay reproducible and auditable.
 
 ## Out of Scope

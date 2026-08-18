@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Health",
@@ -13,7 +15,7 @@ type HealthData = {
   timestamp: string;
   region: string;
   env: {
-    anthropicConfigured: boolean;
+    geminiConfigured: boolean;
     psiConfigured: boolean;
   };
 };
@@ -34,19 +36,33 @@ async function getHealth(): Promise<HealthData> {
 function StatusCard({ label, value }: { label: string; value: string }) {
   const ok = value.toLowerCase() === "ok" || value.toLowerCase() === "configured";
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-card">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={
-          ok
-            ? "mt-1 text-base font-bold text-success"
-            : "mt-1 text-base font-bold text-foreground"
-        }
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-5 shadow-card">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "inline-flex size-8 shrink-0 items-center justify-center rounded-lg",
+          ok ? "bg-success-bg text-success" : "bg-danger-bg text-danger"
+        )}
       >
-        {value}
-      </p>
+        {ok ? (
+          <CheckCircle2 className="size-4" />
+        ) : (
+          <XCircle className="size-4" />
+        )}
+      </span>
+      <div>
+        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {label}
+        </p>
+        <p
+          className={cn(
+            "mt-0.5 text-base font-bold",
+            ok ? "text-success" : "text-foreground"
+          )}
+        >
+          {value}
+        </p>
+      </div>
     </div>
   );
 }
@@ -64,7 +80,7 @@ export default async function HealthPage() {
   return (
     <div className="flex flex-col items-start gap-6">
       <div>
-        <p className="mb-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="mb-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           Health
         </p>
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -84,8 +100,8 @@ export default async function HealthPage() {
             value={new Date(data.timestamp).toLocaleString()}
           />
           <StatusCard
-            label="Anthropic API key"
-            value={data.env.anthropicConfigured ? "Configured" : "Not set"}
+            label="Gemini API key"
+            value={data.env.geminiConfigured ? "Configured" : "Not set"}
           />
           <StatusCard
             label="PageSpeed API key"
@@ -93,9 +109,12 @@ export default async function HealthPage() {
           />
         </div>
       ) : (
-        <p className="rounded-md bg-danger-bg px-4 py-2 text-sm text-danger">
-          Failed to reach health endpoint: {fetchError}
-        </p>
+        <div className="flex w-full items-center gap-3 rounded-xl border border-danger/30 bg-danger-bg px-4 py-3 text-danger">
+          <XCircle aria-hidden="true" className="size-5 shrink-0" />
+          <p className="text-sm">
+            Failed to reach health endpoint: {fetchError}
+          </p>
+        </div>
       )}
 
       <p className="rounded-md bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">

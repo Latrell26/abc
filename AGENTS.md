@@ -9,7 +9,7 @@ SEO Audit Dashboard — AI-powered tool that audits a website's SEO health and e
 ## Stack
 - Node.js (LTS), Git
 - Next.js / React + Tailwind CSS, Recharts
-- Google PageSpeed Insights API, Cheerio (HTML scraping), Claude API
+- Google PageSpeed Insights API, Cheerio (HTML scraping), Gemini API (free tier) via Vercel AI SDK
 - No persistence in MVP (audits are ephemeral); Supabase deferred to Planned
 
 ## Commands
