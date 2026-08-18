@@ -1,37 +1,47 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PlaceholderPage } from "@/components/page-placeholder";
+import { StepProgress } from "@/components/step-progress";
 
 export const metadata: Metadata = {
   title: "Audit in Progress",
 };
 
-const steps = ["Scraping page", "Running technical checks", "Fetching speed score", "Writing AI summary"];
+const steps = [
+  "Scraping page",
+  "Running technical checks",
+  "Fetching speed score",
+  "Writing AI summary",
+];
 
-export default function AuditLoadingPage() {
+export default async function AuditLoadingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ url?: string }>;
+}) {
+  const { url } = await searchParams;
+
   return (
-    <div className="flex flex-col items-start gap-8">
-      <PlaceholderPage
-        badge="Audit in progress"
-        title="Analyzing your website"
-        description="The audit runs a sequence of checks before producing your dashboard. This screen shows progress while the pipeline runs."
-      />
+    <div className="flex flex-col items-start gap-6">
+      <div>
+        <p className="mb-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Audit in progress
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          Analyzing your website
+        </h1>
+        {url ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Running a full SEO audit on{" "}
+            <span className="font-medium text-foreground">{url}</span>
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Running the audit pipeline — this takes a few seconds.
+          </p>
+        )}
+      </div>
 
-      <ol className="w-full max-w-xl space-y-3">
-        {steps.map((step, index) => (
-          <li
-            key={step}
-            className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-card"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-              {index + 1}
-            </span>
-            <span className="text-sm font-medium text-card-foreground">
-              {step}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <StepProgress steps={steps} />
 
       <Link
         href="/"

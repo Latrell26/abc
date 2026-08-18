@@ -1,16 +1,15 @@
-import { useRef, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { ModalDialog } from "./ModalDialog";
 import { Tabs } from "./Tabs";
 import { Disclosure } from "./Disclosure";
 
 function useModalControl() {
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
 
-  return { isOpen, open, close, triggerRef };
+  return { isOpen, open, close };
 }
 
 export function Playground() {
@@ -36,9 +35,9 @@ export function Playground() {
         <div>
           <h3>Technical Details</h3>
           <p>
-            Each tab panel has <code>role="tabpanel"</code> and{" "}
+            Each tab panel has <code>role=&quot;tabpanel&quot;</code> and{" "}
             <code>aria-labelledby</code> pointing back to its tab trigger. The
-            active tab has <code>aria-selected="true"</code>.
+            active tab has <code>aria-selected=&quot;true&quot;</code>.
           </p>
         </div>
       ),
@@ -78,7 +77,6 @@ export function Playground() {
         <button
           className="btn-open"
           onClick={modalState.open}
-          ref={modalState.triggerRef}
         >
           Open Dialog
         </button>
@@ -141,8 +139,9 @@ export function Playground() {
         <Disclosure label="How does the AI summary work?">
           <p>
             After all deterministic checks finish, the structured findings are
-            sent to the Claude API. It produces a plain-language summary and
-            prioritized fix recommendations — no jargon, just actionable steps.
+            sent to the Gemini API (free tier). It produces a plain-language
+            summary and prioritized fix recommendations — no jargon, just
+            actionable steps.
           </p>
         </Disclosure>
         <Disclosure label="Is my data stored?">

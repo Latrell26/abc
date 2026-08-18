@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const URL_PATTERN = /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i;
 
@@ -30,35 +32,42 @@ export function AuditForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full flex-col gap-3 sm:flex-row sm:items-start"
+      className="w-full"
       noValidate
+      aria-describedby={error ? "url-error" : undefined}
     >
-      <div className="flex w-full flex-col gap-1">
-        <input
-          type="text"
-          value={url}
-          onChange={(event) => {
-            setUrl(event.target.value);
-            if (error) setError(null);
-          }}
-          placeholder="https://example.com"
-          aria-label="Website URL to audit"
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "url-error" : undefined}
-          className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
-        {error ? (
-          <p id="url-error" className="text-sm text-danger">
-            {error}
-          </p>
-        ) : null}
+      <div className="flex w-full flex-col gap-2 sm:flex-row">
+        <div className="relative flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <label htmlFor="audit-url" className="sr-only">
+            Website URL to audit
+          </label>
+          <input
+            id="audit-url"
+            type="text"
+            value={url}
+            onChange={(event) => {
+              setUrl(event.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="https://example.com"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "url-error" : undefined}
+            className="w-full rounded-xl border border-input bg-background py-3.5 pr-4 pl-11 text-base text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20 dark:bg-card"
+          />
+        </div>
+        <Button type="submit" size="lg" className="h-[3.25rem] px-6 text-base">
+          Run audit
+        </Button>
       </div>
-      <button
-        type="submit"
-        className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/30"
-      >
-        Run audit
-      </button>
+      {error ? (
+        <p id="url-error" role="alert" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
     </form>
   );
 }

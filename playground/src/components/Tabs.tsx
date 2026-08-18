@@ -18,7 +18,6 @@ export function Tabs({ tabs, defaultTab, label }: TabsProps) {
   );
   const tablistRef = useRef<HTMLDivElement>(null);
   const tabIdPrefix = useId();
-  const panelIdPrefix = useId();
 
   const getTabId = (tabIndex: number) => `${tabIdPrefix}-tab-${tabIndex}`;
   const getPanelId = (tabIndex: number) => `${tabIdPrefix}-panel-${tabIndex}`;
