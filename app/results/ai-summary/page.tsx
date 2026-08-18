@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   title: "AI Summary",
 };
 
+export const dynamic = "force-dynamic";
+
 const severityMeta: Record<
   Recommendation["severity"],
   { label: string; icon: typeof AlertTriangle; badge: string; iconColor: string }
