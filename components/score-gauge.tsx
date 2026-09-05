@@ -1,4 +1,4 @@
-import { scoreTone } from "@/lib/mock-audit";
+import { scoreTone } from "@/lib/audit-types";
 
 const toneColors = {
   success: "var(--color-success)",

@@ -10,7 +10,7 @@ const steps = [
   "Scraping page",
   "Running technical checks",
   "Fetching speed score",
-  "Writing AI summary",
+  "Compiling your report",
 ];
 
 export default async function AuditLoadingPage({
@@ -36,12 +36,13 @@ export default async function AuditLoadingPage({
           </p>
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">
-            Running the audit pipeline — this takes a few seconds.
+            Most audits take 15–60 seconds depending on the size of the
+            site — we check every page we can find.
           </p>
         )}
       </div>
 
-      <StepProgress steps={steps} />
+      <StepProgress steps={steps} domain={url} />
 
       <Link
         href="/"

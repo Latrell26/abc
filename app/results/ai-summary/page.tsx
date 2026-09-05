@@ -1,4 +1,7 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useSyncExternalStore } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
@@ -6,14 +9,14 @@ import {
   Info,
 } from "lucide-react";
 import { Chat } from "@/components/chat";
-import { mockAudit, type Recommendation } from "@/lib/mock-audit";
+import {
+  type Recommendation,
+} from "@/lib/audit-types";
+import {
+  getAuditSnapshot,
+  subscribeAuditStorage,
+} from "@/lib/audit-storage";
 import { cn } from "@/lib/utils";
-
-export const metadata: Metadata = {
-  title: "AI Summary",
-};
-
-export const dynamic = "force-dynamic";
 
 const severityMeta: Record<
   Recommendation["severity"],
@@ -77,6 +80,50 @@ function RecommendationCard({
 }
 
 export default function AiSummaryPage() {
+  // Tri-state like the dashboard: undefined = loading, null = no audit
+  // stored (empty state, chat hidden), AuditResult = render normally.
+  // Read synchronously via useSyncExternalStore so navigation paints the
+  // current audit on the first frame — the chat (keyed by audit.url)
+  // always mounts against fresh data, never a stale previous run.
+  const audit = useSyncExternalStore(
+    subscribeAuditStorage,
+    getAuditSnapshot,
+    () => undefined
+  );
+
+  if (audit === undefined) {
+    return (
+      <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading AI summary">
+        <div className="h-8 w-56 animate-pulse rounded-lg bg-muted" />
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+        <div className="h-32 animate-pulse rounded-xl bg-muted" />
+      </div>
+    );
+  }
+
+  if (audit === null) {
+    return (
+      <div className="flex flex-col items-center gap-6 py-12 text-center">
+        <p className="mb-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          No audit yet
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          Nothing to summarize yet
+        </h1>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          Run an SEO audit first — then the assistant can explain your results
+          in plain language and tell you what to fix.
+        </p>
+        <Link
+          href="/"
+          className="px-4 py-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Run an audit
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <section aria-labelledby="summary-heading">
@@ -90,12 +137,17 @@ export default function AiSummaryPage() {
           What your results mean
         </h1>
         <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          Ask anything about the audit for {mockAudit.url} — the assistant
+          Ask anything about the audit for {audit.url} — the assistant
           answers in plain language.
         </p>
       </section>
 
-      <Chat />
+      {/*
+        Keyed by audit domain: a new audit mounts a brand-new Chat, so
+        neither in-memory messages nor the persisted conversation from a
+        previous site can leak into the new summary.
+      */}
+      <Chat key={audit.url} audit={audit} />
 
       <section aria-labelledby="fixes-heading">
         <h2
@@ -104,15 +156,21 @@ export default function AiSummaryPage() {
         >
           What to fix, in order
         </h2>
-        <div className="mt-4 space-y-3">
-          {mockAudit.recommendations.map((recommendation, index) => (
-            <RecommendationCard
-              key={recommendation.id}
-              recommendation={recommendation}
-              index={index}
-            />
-          ))}
-        </div>
+        {audit.recommendations.length > 0 ? (
+          <div className="mt-4 space-y-3">
+            {audit.recommendations.map((recommendation, index) => (
+              <RecommendationCard
+                key={recommendation.id}
+                recommendation={recommendation}
+                index={index}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No recommendations yet — run an audit first, or all checks passed.
+          </p>
+        )}
       </section>
     </div>
   );

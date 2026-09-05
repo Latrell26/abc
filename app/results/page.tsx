@@ -1,4 +1,7 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useSyncExternalStore } from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -9,15 +12,14 @@ import {
 import { ScoreGauge } from "@/components/score-gauge";
 import { SpeedChart } from "@/components/speed-chart";
 import {
-  mockAudit,
   scoreTone,
+  type AuditCheck,
   type CheckStatus,
-} from "@/lib/mock-audit";
-import { cn } from "@/lib/utils";
-
-export const metadata: Metadata = {
-  title: "Results",
-};
+} from "@/lib/audit-types";
+import {
+  getAuditSnapshot,
+  subscribeAuditStorage,
+} from "@/lib/audit-storage";import { cn } from "@/lib/utils";
 
 const statusMeta: Record<
   CheckStatus,
@@ -63,7 +65,7 @@ function StatusPill({ status }: { status: CheckStatus }) {
 function CheckCard({
   check,
 }: {
-  check: (typeof mockAudit.checks)[number];
+  check: AuditCheck;
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-card">
@@ -96,7 +98,212 @@ function CheckCard({
 }
 
 export default function ResultsPage() {
-  const passed = mockAudit.checks.filter((c) => c.status === "pass").length;
+  // Real audit data stored by the loading screen, read synchronously via
+  // useSyncExternalStore so client-side navigation paints the dashboard on
+  // the very first frame — no skeleton flash, no stale-data flicker.
+  // Tri-state: undefined = SSR/loading (skeleton), null = no audit stored
+  // (empty state with CTA), AuditResult = render the dashboard.
+  // The store notifies on every save/clear (plus cross-tab changes), so
+  // the page always shows the latest audit without re-read effects.
+  const audit = useSyncExternalStore(
+    subscribeAuditStorage,
+    getAuditSnapshot,
+    () => undefined
+  );
+
+  if (audit === undefined) {
+    return (
+      <div className="flex flex-col gap-8" aria-busy="true" aria-label="Loading audit results">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
+        <div className="grid w-full gap-3 lg:grid-cols-3">
+          <div className="h-64 animate-pulse rounded-xl bg-muted" />
+          <div className="h-64 animate-pulse rounded-xl bg-muted lg:col-span-2" />
+        </div>
+        <div className="grid w-full gap-3 sm:grid-cols-2">
+          <div className="h-32 animate-pulse rounded-xl bg-muted" />
+          <div className="h-32 animate-pulse rounded-xl bg-muted" />
+        </div>
+      </div>
+    );
+  }
+
+  if (audit === null) {
+    return (
+      <div className="flex flex-col items-center gap-8 py-12 text-center">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold tracking-wide text-primary uppercase">
+          No audit yet
+        </p>
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">
+          Run your first SEO audit
+        </h1>
+        <p className="max-w-prose text-lg text-muted-foreground">
+          There are no audit results to show. Enter your website URL on the
+          home page and we will check its SEO health, speed, and what to fix.
+        </p>
+        <div className="mt-6">
+          <Link
+            href="/"
+            className="px-4 py-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Run an audit
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const pipelineFailed = audit.overallScore === -1;
+  const passed = audit.checks.filter((c) => c.status === "pass").length;
+  const totalChecks = audit.checks.length;
+  const failedChecks = audit.checks.filter((c) => c.status === "fail").length;
+  const partialChecks = audit.checks.filter(
+    (c) => c.status === "partial"
+  ).length;
+  const totalPages = audit.totalPages ?? 1;
+
+  if (pipelineFailed) {
+    return (
+      <div className="flex flex-col items-center gap-8 py-12">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold tracking-wide text-primary uppercase">
+          Audit failed
+        </p>
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">
+          SEO Audit Total Failure
+        </h1>
+        <p className="text-lg text-muted-foreground">
+          Unfortunately, we were not able to complete the audit of this page. This
+          can happen if the site is unreachable, the robots.txt or sitemap.xml cannot
+          be found, or Google PageSpeed Insights quota has been exhausted.
+        </p>
+        <div className="mt-6 flex gap-3">
+          <button
+            className="px-4 py-2 rounded-md border border-primary text-sm font-medium text-primary hover:bg-primary/10"
+          >
+            Retry Audit
+          </button>
+          <Link
+            href="/"
+            className="px-4 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted/50"
+          >
+            Go Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (totalPages === 1) {
+    return (
+      <div className="flex flex-col gap-8">
+        <section aria-labelledby="score-heading">
+          <p className="mb-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Results dashboard
+          </p>
+          <h1 id="score-heading" className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Your SEO report
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Audit of <span className="font-medium text-foreground">
+              {audit.url}
+            </span> —{" "}
+            {new Date().toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+          <p className="mt-2 text-sm text-warning">
+            <strong>Audited 1 page only</strong> — results reflect this single page. For
+            a full site audit, add more URLs or check that sitemap.xml is accessible.
+          </p>
+
+          <div className="mt-6 grid w-full gap-3 lg:grid-cols-3">
+            <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">
+              <div className="flex items-center justify-center">
+                <ScoreGauge value={audit.overallScore} label="Overall SEO" />
+              </div>
+              <p className="max-w-[16rem] text-center text-sm text-muted-foreground">
+                {scoreTone(audit.overallScore) === "success"
+                  ? "Solid fundamentals — your site is in good shape."
+                  : scoreTone(audit.overallScore) === "warning"
+                    ? "You're on the right track, but a few fixes will move the needle."
+                    : "Several issues are holding your site back in search results."}
+              </p>
+            </div>
+
+            <div className="flex flex-col justify-between gap-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-2">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ListChecks aria-hidden="true" className="size-5" />
+                </span>
+                <h2 className="text-sm font-semibold text-card-foreground">
+                  Check results
+                </h2>
+              </div>
+              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-lg bg-muted p-4">
+                  <dt className="text-xs font-medium text-muted-foreground">Checks passed</dt>
+                  <dd className="mt-1 text-2xl font-bold tabular-nums text-success">
+                    {passed}
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {" "}
+                      / {totalChecks}
+                    </span>
+                  </dd>
+                </div>
+                <div className="rounded-lg bg-muted p-4">
+                  <dt className="text-xs font-medium text-muted-foreground">Speed score</dt>
+                  <dd className="mt-1 text-2xl font-bold tabular-nums text-warning">
+                    {audit.pageSpeedScore}
+                    <span className="text-sm font-medium text-muted-foreground"> / 100</span>
+                  </dd>
+                </div>
+                <div className="rounded-lg bg-muted p-4">
+                  <dt className="text-xs font-medium text-muted-foreground">Needs attention</dt>
+                  <dd className="mt-1 text-2xl font-bold tabular-nums text-danger">
+                    {failedChecks + partialChecks}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="checks-heading">
+          <h2 id="checks-heading" className="text-lg font-semibold tracking-tight text-foreground">
+            Technical checks
+          </h2>
+          <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
+            {audit.checks.map((check) => (
+              <CheckCard key={check.id} check={check} />
+            ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="speed-heading" className="rounded-xl border border-border bg-card p-6 shadow-card">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Gauge aria-hidden="true" className="size-5" />
+            </span>
+            <div>
+              <h2 id="speed-heading" className="text-sm font-semibold text-card-foreground">
+                Page speed
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Lab metrics from Google PageSpeed Insights
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 grid w-full gap-6 lg:grid-cols-[auto_1fr] lg:items-center">
+            <div className="flex items-center justify-center lg:px-4">
+              <ScoreGauge value={audit.pageSpeedScore} label="Performance" size={140} />
+            </div>
+            <SpeedChart metrics={audit.psiMetrics} />
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -108,7 +315,8 @@ export default function ResultsPage() {
           Your SEO report
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Audit of <span className="font-medium text-foreground">{mockAudit.url}</span> —{" "}
+          Audit of <span className="font-medium text-foreground">{audit.url}</span> —{" "}
+          {totalPages} page{totalPages === 1 ? "" : "s"} —{" "}
           {new Date().toLocaleDateString(undefined, {
             year: "numeric",
             month: "long",
@@ -119,12 +327,12 @@ export default function ResultsPage() {
         <div className="mt-6 grid w-full gap-3 lg:grid-cols-3">
           <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">
             <div className="flex items-center justify-center">
-              <ScoreGauge value={mockAudit.overallScore} label="Overall SEO" />
+              <ScoreGauge value={audit.overallScore} label="Overall SEO" />
             </div>
             <p className="max-w-[16rem] text-center text-sm text-muted-foreground">
-              {scoreTone(mockAudit.overallScore) === "success"
+              {scoreTone(audit.overallScore) === "success"
                 ? "Solid fundamentals — your site is in good shape."
-                : scoreTone(mockAudit.overallScore) === "warning"
+                : scoreTone(audit.overallScore) === "warning"
                   ? "You're on the right track, but a few fixes will move the needle."
                   : "Several issues are holding your site back in search results."}
             </p>
@@ -146,21 +354,21 @@ export default function ResultsPage() {
                   {passed}
                   <span className="text-sm font-medium text-muted-foreground">
                     {" "}
-                    / {mockAudit.checks.length}
+                    / {totalChecks}
                   </span>
                 </dd>
               </div>
               <div className="rounded-lg bg-muted p-4">
                 <dt className="text-xs font-medium text-muted-foreground">Speed score</dt>
                 <dd className="mt-1 text-2xl font-bold tabular-nums text-warning">
-                  {mockAudit.pageSpeedScore}
+                  {audit.pageSpeedScore}
                   <span className="text-sm font-medium text-muted-foreground"> / 100</span>
                 </dd>
               </div>
               <div className="rounded-lg bg-muted p-4">
                 <dt className="text-xs font-medium text-muted-foreground">Needs attention</dt>
                 <dd className="mt-1 text-2xl font-bold tabular-nums text-danger">
-                  {mockAudit.checks.filter((c) => c.status !== "pass").length}
+                  {failedChecks + partialChecks}
                 </dd>
               </div>
             </dl>
@@ -173,7 +381,7 @@ export default function ResultsPage() {
           Technical checks
         </h2>
         <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
-          {mockAudit.checks.map((check) => (
+          {audit.checks.map((check) => (
             <CheckCard key={check.id} check={check} />
           ))}
         </div>
@@ -195,9 +403,9 @@ export default function ResultsPage() {
         </div>
         <div className="mt-6 grid w-full gap-6 lg:grid-cols-[auto_1fr] lg:items-center">
           <div className="flex items-center justify-center lg:px-4">
-            <ScoreGauge value={mockAudit.pageSpeedScore} label="Performance" size={140} />
+            <ScoreGauge value={audit.pageSpeedScore} label="Performance" size={140} />
           </div>
-          <SpeedChart metrics={mockAudit.psiMetrics} />
+          <SpeedChart metrics={audit.psiMetrics} />
         </div>
       </section>
     </div>

@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { scoreTone, type PsiMetric } from "@/lib/mock-audit";
+import { scoreTone, type PsiMetric } from "@/lib/audit-types";
 
 const toneColors = {
   success: "var(--color-success)",

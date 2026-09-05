@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { ResultsTabs } from "@/components/results-tabs";
+
+export const metadata: Metadata = {
+  title: "Results",
+};
 
 export default function ResultsLayout({
   children,
