@@ -22,6 +22,57 @@ npm test          # run tests
 - Visual dashboard (score cards, charts, pass/fail breakdown)
 - AI-generated summary and fix recommendations
 - Streaming AI chat assistant — token-by-token summaries plus follow-up Q&A
+- `comparePages` AI tool — the assistant ranks audited pages by any SEO metric (rendered as a bar chart, not text)
+
+## AI Tools
+
+### `comparePages`
+
+Server-side tool the assistant calls for page-comparison questions
+(“which page has the worst heading structure?”). Defined in
+[`lib/ai/compare-pages.tool.ts`](./lib/ai/compare-pages.tool.ts), wired into
+[`app/api/chat/route.ts`](./app/api/chat/route.ts).
+
+**Input schema** (Zod — one field, kept small on purpose):
+
+```ts
+{ metric: "score" | "pageSpeed" | "titleTag" | "metaDescription"
+  | "headingStructure" | "altText" | "canonicalTag" }
+```
+
+**Return shape** (`ComparePagesOutput`):
+
+```ts
+{
+  metric: /* the requested metric */,
+  ranking: [{ url, value, issues, overallScore }], // best-first for scores, worst-first for checks
+  bestUrl: string,
+  worstUrl: string,
+  skippedCount: number, // pages excluded (failed to audit)
+}
+```
+
+- Numeric metrics (`score`, `pageSpeed`) rank by that value, best first;
+  pages with a failed speed fetch (`-1`) sort last.
+- Check metrics rank by issue count in that category (`fail` = 2,
+  `partial` = 1, `pass` = 0); ties break by overall score, lowest first.
+- `execute` reads only the per-page data already in the request (`pages`
+  on the audit payload) — no re-scraping, no external calls.
+
+**Error contract:** `execute` throws when there is nothing to rank (no
+per-page data, e.g. an audit stored before this field existed, or no
+successful pages). The SDK surfaces that as the tool part's `output-error`
+state, rendered in the chat as a designed retry card — never a crash.
+
+**Rendered states** (see `ComparePagesToolView` in
+[`components/chat.tsx`](./components/chat.tsx)):
+
+| Tool part state | What the user sees |
+|---|---|
+| `input-streaming` | “Checking pages…” pulse — the model is deciding on arguments |
+| `input-available` | Chip naming the chosen metric (“Comparing pages by …”) |
+| `output-available` | Real component: [`PageComparisonChart`](./components/page-comparison-chart.tsx) (Recharts horizontal bars + best/worst captions) |
+| `output-error` | Designed error card with the failure reason and a “Try again” button that re-sends the question |
 
 **Planned:**
 - Historical audit tracking with score trends (requires a persistence layer — see Out of Scope)

@@ -1,5 +1,5 @@
 import { createGoogle } from "@ai-sdk/google";
-import type { AuditResult } from "@/lib/mock-audit";
+import type { AuditResult } from "@/lib/audit-types";
 
 /**
  * Central AI configuration for the audit chat.
@@ -67,6 +67,13 @@ export function buildSystemPrompt(audit: AuditResult): string {
     "- Be honest and specific, and ground every answer in the audit data below.",
     "- If asked something outside the audit, say you can only discuss the audit.",
     "- Use short paragraphs and lists; never use markdown headers.",
+    "",
+    "You have a tool called comparePages. Call it whenever the user asks",
+    "which audited page is best or worst, or wants pages ranked — e.g.",
+    "'which page has the worst heading structure?' or 'compare page speeds'.",
+    "Do not call it for site-wide questions that need no comparison. After",
+    "the tool returns, explain the result in plain language; the ranking",
+    "itself is shown to the user as a chart, so don't paste raw numbers.",
     "",
     "The user's first message will ask you to summarize this audit:",
     "",

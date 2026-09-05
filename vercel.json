@@ -3,6 +3,9 @@
     "app/api/chat/route.ts": {
       "supportsCancellation": true,
       "maxDuration": 60
+    },
+    "app/api/audit/route.ts": {
+      "maxDuration": 60
     }
   }
 }
