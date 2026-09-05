@@ -1,6 +1,9 @@
 # Demo walkthrough — `comparePages` tool call end to end
 
-> **Preview URL:** `<paste the Vercel deployment URL here, e.g. https://abc-xyz.vercel.app>`
+> **Preview URL:** `https://abc-latrell26s-projects.vercel.app`
+> (stable production alias — always serves the latest `main` build.
+> Per-deployment URLs like `abc-ijypu0cd1-….vercel.app` are frozen
+> snapshots and go stale after the next push.)
 >
 > **Tool definition file:** [`lib/ai/compare-pages.tool.ts`](../lib/ai/compare-pages.tool.ts)
 > — contract documented in [`README.md`](../README.md) (`AI Tools` → `comparePages`).
