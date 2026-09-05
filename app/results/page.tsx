@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -110,6 +111,7 @@ export default function ResultsPage() {
     getAuditSnapshot,
     () => undefined
   );
+  const router = useRouter();
 
   if (audit === undefined) {
     return (
@@ -160,6 +162,9 @@ export default function ResultsPage() {
     (c) => c.status === "partial"
   ).length;
   const totalPages = audit.totalPages ?? 1;
+  // Pages that never produced results, with the actual reason each one
+  // failed (HTTP status, fetch timeout, server time-budget skip).
+  const failedPages = (audit.pages ?? []).filter((p) => p.status !== "success");
 
   if (pipelineFailed) {
     return (
@@ -170,13 +175,18 @@ export default function ResultsPage() {
         <h1 className="text-4xl font-bold tracking-tight text-foreground">
           SEO Audit Total Failure
         </h1>
-        <p className="text-lg text-muted-foreground">
-          Unfortunately, we were not able to complete the audit of this page. This
-          can happen if the site is unreachable, the robots.txt or sitemap.xml cannot
+        <p className="max-w-prose text-center text-lg text-muted-foreground">
+          {audit.failureReason ??
+            "Unfortunately, we were not able to complete the audit of this page."}
+        </p>
+        <p className="max-w-prose text-center text-sm text-muted-foreground">
+          This can happen if the site is unreachable, the robots.txt or sitemap.xml cannot
           be found, or Google PageSpeed Insights quota has been exhausted.
         </p>
         <div className="mt-6 flex gap-3">
           <button
+            type="button"
+            onClick={() => router.push("/")}
             className="px-4 py-2 rounded-md border border-primary text-sm font-medium text-primary hover:bg-primary/10"
           >
             Retry Audit
@@ -323,6 +333,31 @@ export default function ResultsPage() {
             day: "numeric",
           })}
         </p>
+
+        {failedPages.length > 0 && (
+          <div
+            role="note"
+            aria-label="Pages that could not be audited"
+            className="mt-4 rounded-xl border border-warning/30 bg-warning-bg p-4"
+          >
+            <p className="text-sm font-semibold text-warning">
+              {failedPages.length} of {totalPages} page
+              {totalPages === 1 ? "" : "s"} could not be audited — scores
+              reflect the pages that completed.
+            </p>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              {failedPages.slice(0, 4).map((page) => (
+                <li key={page.url} className="break-all">
+                  <span className="font-medium">{page.url}</span>
+                  {page.error ? ` — ${page.error}` : ""}
+                </li>
+              ))}
+              {failedPages.length > 4 && (
+                <li>…and {failedPages.length - 4} more.</li>
+              )}
+            </ul>
+          </div>
+        )}
 
         <div className="mt-6 grid w-full gap-3 lg:grid-cols-3">
           <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">

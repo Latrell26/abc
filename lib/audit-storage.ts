@@ -31,6 +31,7 @@ export interface ApiPageResult {
   pageSpeedScore: number;
   overallScore: number;
   psiMetrics: PsiMetric[];
+  error?: string;
   checks?: {
     titleTag?: { status: string; verdict: string };
     metaDescription?: { status: string; verdict: string };
@@ -52,6 +53,13 @@ export interface ApiAuditResponse {
     passed: number;
     failed: number;
     partial: number;
+  };
+  diagnostics?: {
+    discovery: string;
+    discoveredCount: number;
+    auditedCount: number;
+    failedCount: number;
+    durationMs: number;
   };
 }
 
@@ -201,13 +209,14 @@ export function mapApiResponseToAuditResult(
         overallScore: page.overallScore,
         pageSpeedScore: page.pageSpeedScore,
         checks: pageChecks,
+        error: page.error,
       };
     }),
   };
 }
 
 /** Builds the stored value for a total pipeline failure (triggers the error UI). */
-export function failureAuditResult(domain: string): AuditResult {
+export function failureAuditResult(domain: string, reason?: string): AuditResult {
   return {
     url: domain,
     overallScore: -1,
@@ -217,6 +226,9 @@ export function failureAuditResult(domain: string): AuditResult {
     aiSummary: "",
     recommendations: [],
     totalPages: 0,
+    // The actual cause (HTTP status, timeout, network error) — shown on
+    // the failure screen instead of the generic copy.
+    failureReason: reason,
     // No per-page data on total failure — `comparePages` takes its
     // designed error path instead of ranking nothing.
     pages: [],

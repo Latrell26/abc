@@ -6,6 +6,26 @@ import type { PsiResult } from "@/lib/psi";
 
 const MAX_PAGES = 10;
 
+/**
+ * Vercel's serverless functions cap out at 60s (see vercel.json), and the
+ * audit does sequential PSI lab runs (~10-25s each). This budget stops the
+ * route launching new batches before the platform can kill the request —
+ * remaining pages are marked with a reason instead of the whole run dying.
+ */
+const AUDIT_BUDGET_MS = 50000;
+
+// Belt and suspenders with vercel.json: the explicit export is what the
+// App Router reliably honors for this route's function duration.
+export const maxDuration = 60;
+
+/** PSI-less placeholder metrics for pages that never reached PageSpeed. */
+const ERROR_PSI_METRICS = [
+  { id: "fcp", label: "First Contentful Paint", value: "Error", score: 0 },
+  { id: "lcp", label: "Largest Contentful Paint", value: "Error", score: 0 },
+  { id: "tbt", label: "Total Blocking Time", value: "Error", score: 0 },
+  { id: "cls", label: "Cumulative Layout Shift", value: "Error", score: 0 },
+];
+
 // Helpers
 
 function getETLDPlus1(url: string): string {
@@ -65,6 +85,7 @@ async function fetchSitemapUrls(domain: string): Promise<string[]> {
       const sitemapUrl = `${protocol}//${hostname}/sitemap.xml`;
       const res = await fetch(sitemapUrl, {
         headers: { "User-Agent": "Mozilla/5.0" },
+        signal: AbortSignal.timeout(12000),
       });
 
       if (!res.ok) continue;
@@ -97,6 +118,7 @@ async function fetchRobotsSitemap(domain: string): Promise<string | null> {
     const robotsUrl = `https://${hostname}/robots.txt`;
     const res = await fetch(robotsUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(12000),
     });
 
     if (!res.ok) return null;
@@ -135,6 +157,8 @@ async function auditSinglePage(
   pageSpeedScore: number;
   overallScore: number;
   psiMetrics: Array<{ id: string; label: string; value: string; score: number }>;
+  /** Why this page failed, e.g. "HTTP 403" or a fetch timeout message. */
+  error?: string;
 }> {
   // 1. Fetch HTML
   const htmlResult = await fetchHTML(url);
@@ -150,6 +174,7 @@ async function auditSinglePage(
         { id: "tbt", label: "Total Blocking Time", value: "Error", score: 0 },
         { id: "cls", label: "Cumulative Layout Shift", value: "Error", score: 0 },
       ],
+      error: htmlResult.error ?? "Page fetch failed",
     };
   }
 
@@ -253,6 +278,7 @@ async function auditSinglePage(
 // Main API handler
 
 export async function POST(req: Request) {
+  const startedAt = Date.now();
   try {
     const body = await req.json();
     const { domain, manualUrls, psiKey } = body;
@@ -267,6 +293,7 @@ export async function POST(req: Request) {
 
     // Determine page URLs
     let pageUrls: string[] = [];
+    let discovery: "manual" | "sitemap" | "robotsSitemap" | "fallback" = "fallback";
 
     if (manualUrls && Array.isArray(manualUrls)) {
       // Validate all manual URLs share same registrable domain
@@ -284,12 +311,14 @@ export async function POST(req: Request) {
         )
         .map((u: string) => normalizeUrl(u))
         .filter((u: string) => isSameRegistrableDomain(u, domainEtld));
+      discovery = "manual";
     } else {
       // Automatic page discovery
       // 1. Try sitemap.xml
       const sitemapUrls = await fetchSitemapUrls(domainEtld);
       if (sitemapUrls.length > 0) {
         pageUrls = prioritizeShallowUrls(sitemapUrls, domainEtld);
+        discovery = "sitemap";
       } else {
         // 2. Try robots.txt sitemap directive
         const robotsSitemap = await fetchRobotsSitemap(domainEtld);
@@ -297,6 +326,7 @@ export async function POST(req: Request) {
           try {
             const res = await fetch(robotsSitemap, {
               headers: { "User-Agent": "Mozilla/5.0" },
+              signal: AbortSignal.timeout(12000),
             });
             if (res.ok) {
               const xml = await res.text();
@@ -309,6 +339,7 @@ export async function POST(req: Request) {
                 }
               }
               pageUrls = prioritizeShallowUrls(urls, domainEtld);
+              if (pageUrls.length > 0) discovery = "robotsSitemap";
             }
           } catch {
             // continue to fallback
@@ -336,6 +367,7 @@ export async function POST(req: Request) {
       pageSpeedScore: number;
       overallScore: number;
       psiMetrics: Array<{ id: string; label: string; value: string; score: number }>;
+      error?: string;
       checks?: {
         titleTag?: { status: string; verdict: string };
         metaDescription?: { status: string; verdict: string };
@@ -353,6 +385,23 @@ export async function POST(req: Request) {
     const effectivePsiKey = psiKey || process.env.GOOGLE_PAGESPEED_API_KEY || "";
 
     for (let i = 0; i < pageUrls.length; i += 3) {
+      // Past the time budget: mark every remaining page with a reason
+      // instead of letting the platform kill the whole request. The
+      // dashboard still reports whatever already finished.
+      if (Date.now() - startedAt > AUDIT_BUDGET_MS) {
+        for (const url of pageUrls.slice(i)) {
+          results.push({
+            url,
+            status: "failed",
+            pageSpeedScore: -1,
+            overallScore: -1,
+            psiMetrics: ERROR_PSI_METRICS.map((m) => ({ ...m })),
+            error: "Skipped: audit time budget (50s) exceeded on the server.",
+          });
+        }
+        break;
+      }
+
       const batch = pageUrls.slice(i, i + 3);
 
       await Promise.all(
@@ -364,6 +413,7 @@ export async function POST(req: Request) {
               pageSpeedScore: result.pageSpeedScore,
               overallScore: result.overallScore,
               psiMetrics: result.psiMetrics,
+              error: result.error,
               checks: result.checks,
             });
 
@@ -425,6 +475,15 @@ export async function POST(req: Request) {
         passed: passedChecks,
         failed: failedChecks,
         partial: partialChecks,
+      },
+      // Telemetry for the dashboard's failure messaging — no sensitive
+      // data, just how the audit was discovered and how it ended.
+      diagnostics: {
+        discovery,
+        discoveredCount: pageUrls.length,
+        auditedCount: successfulResults.length,
+        failedCount: results.length - successfulResults.length,
+        durationMs: Date.now() - startedAt,
       },
     });
   } catch (error) {

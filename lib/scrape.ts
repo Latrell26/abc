@@ -10,6 +10,9 @@ export async function fetchHTML(url: string): Promise<FetchHTMLResult> {
         Accept:
           "text/html,application/xml,application/json;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
       },
+      // A hung page must never stall its whole batch — the audit route
+      // works under a hard serverless time budget (see route.ts).
+      signal: AbortSignal.timeout(12000),
     });
 
     if (!res.ok) {

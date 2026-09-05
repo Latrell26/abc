@@ -39,6 +39,8 @@ export interface AuditPageSummary {
   overallScore: number;
   pageSpeedScore: number;
   checks: Partial<Record<CheckId, CheckStatus>>;
+  /** Why this page failed, e.g. "HTTP 403", a fetch timeout, or a time-budget skip. */
+  error?: string;
 }
 
 export interface AuditResult {
@@ -51,6 +53,12 @@ export interface AuditResult {
   recommendations: Recommendation[];
   /** Number of pages audited. Defaults to 1 for single-page audits. */
   totalPages?: number;
+  /**
+   * Human-readable reason for a total-pipeline failure (overallScore -1),
+   * e.g. "Audit request failed: HTTP 504". Shown on the failure screen in
+   * place of the generic copy.
+   */
+  failureReason?: string;
   /**
    * Per-page breakdown for the `comparePages` tool. Optional so audits
    * stored before this field existed still load (the tool then takes its

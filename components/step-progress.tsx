@@ -107,12 +107,18 @@ export function StepProgress({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ domain: targetDomain }),
         });
-        if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`Audit request failed: HTTP ${res.status}`);
+        }
         const data = (await res.json()) as ApiAuditResponse;
         if (!data.success) throw new Error("Audit returned an error");
         if (!cancelled) saveAuditResult(mapApiResponseToAuditResult(data));
-      } catch {
-        if (!cancelled) saveAuditResult(failureAuditResult(targetDomain));
+      } catch (err) {
+        // Preserve the actual cause (HTTP status, timeout, network error)
+        // so the results page can explain the failure instead of guessing.
+        const reason =
+          err instanceof Error ? err.message : "Audit request failed";
+        if (!cancelled) saveAuditResult(failureAuditResult(targetDomain, reason));
       } finally {
         if (!cancelled) setAuditFinished(true);
       }

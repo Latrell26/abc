@@ -75,6 +75,9 @@ export async function getPageSpeed(url: string, apiKey: string): Promise<PsiResu
       headers: {
         Accept: "application/json",
       },
+      // PageSpeed lab runs can hang — never let one page eat the whole
+      // serverless budget. getPageSpeed degrades to -1 scores on timeout.
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!res.ok) {

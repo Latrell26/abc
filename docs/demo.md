@@ -13,6 +13,16 @@
    - `GOOGLE_PAGESPEED_API_KEY` — required for real page-speed data
 2. Redeploy after setting them if the current deploy predates the values.
 
+## Vercel time budget (deployed runs only)
+
+The audit API runs under Vercel's 60s serverless limit. The route enforces
+its own ~50s budget: past it, remaining pages are marked **skipped with a
+reason** instead of killing the whole run, and the dashboard shows a partial
+report with the "X of Y pages" banner (per-page reasons included). For the
+snappiest demo, audit a **mid-size site (≤6 pages)**. Any remaining total
+failure now names its cause (e.g. `Audit request failed: HTTP 504`) rather
+than the generic copy.
+
 ## Happy path — watch all four tool states + the component
 
 1. Open the Preview URL → enter a **multi-page site** (a blog/news site
