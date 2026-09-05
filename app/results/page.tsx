@@ -264,8 +264,14 @@ export default function ResultsPage() {
                 <div className="rounded-lg bg-muted p-4">
                   <dt className="text-xs font-medium text-muted-foreground">Speed score</dt>
                   <dd className="mt-1 text-2xl font-bold tabular-nums text-warning">
-                    {audit.pageSpeedScore}
-                    <span className="text-sm font-medium text-muted-foreground"> / 100</span>
+                    {audit.pageSpeedScore >= 0 ? (
+                      <>
+                        {audit.pageSpeedScore}
+                        <span className="text-sm font-medium text-muted-foreground"> / 100</span>
+                      </>
+                    ) : (
+                      <span className="text-lg font-semibold">N/A</span>
+                    )}
                   </dd>
                 </div>
                 <div className="rounded-lg bg-muted p-4">
@@ -302,6 +308,11 @@ export default function ResultsPage() {
               <p className="text-xs text-muted-foreground">
                 Lab metrics from Google PageSpeed Insights
               </p>
+              {audit.pageSpeedScore === -1 && audit.pageSpeedError ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Speed not measured on the server — {audit.pageSpeedError}.
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="mt-6 grid w-full gap-6 lg:grid-cols-[auto_1fr] lg:items-center">

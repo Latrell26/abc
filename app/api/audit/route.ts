@@ -2,7 +2,7 @@ import { parse } from "tldts";
 import { load as loadCheerio } from "cheerio";
 import { fetchHTML } from "@/lib/scrape";
 import { getPageSpeed } from "@/lib/psi";
-import type { PsiResult } from "@/lib/psi";
+import type { PageSpeedOptions, PsiResult } from "@/lib/psi";
 
 const MAX_PAGES = 10;
 
@@ -139,7 +139,8 @@ async function fetchRobotsSitemap(domain: string): Promise<string | null> {
 
 async function auditSinglePage(
   url: string,
-  psiKey: string
+  psiKey: string,
+  opts?: { psi?: PageSpeedOptions; fetchTimeoutMs?: number }
 ): Promise<{
   url: string;
   status: "success" | "failed";
@@ -159,9 +160,11 @@ async function auditSinglePage(
   psiMetrics: Array<{ id: string; label: string; value: string; score: number }>;
   /** Why this page failed, e.g. "HTTP 403" or a fetch timeout message. */
   error?: string;
+  /** Why PageSpeed returned no score for this page, if it didn't. */
+  psiError?: string;
 }> {
   // 1. Fetch HTML
-  const htmlResult = await fetchHTML(url);
+  const htmlResult = await fetchHTML(url, opts?.fetchTimeoutMs);
   if (!htmlResult.success) {
     return {
       url,
@@ -247,7 +250,7 @@ async function auditSinglePage(
   }
 
   // 3. PageSpeed (getPageSpeed never throws — it returns -1 scores on failure)
-  const psiData: PsiResult = await getPageSpeed(url, psiKey);
+  const psiData: PsiResult = await getPageSpeed(url, psiKey, opts?.psi);
 
   // Per-page overall: prefer the PSI score when available, otherwise derive
   // it from this page's own technical checks so the number always reflects
@@ -272,6 +275,7 @@ async function auditSinglePage(
     pageSpeedScore: psiData.pageSpeedScore,
     overallScore,
     psiMetrics: psiData.psiMetrics,
+    psiError: psiData.error,
   };
 }
 
@@ -368,6 +372,7 @@ export async function POST(req: Request) {
       overallScore: number;
       psiMetrics: Array<{ id: string; label: string; value: string; score: number }>;
       error?: string;
+      psiError?: string;
       checks?: {
         titleTag?: { status: string; verdict: string };
         metaDescription?: { status: string; verdict: string };
@@ -383,12 +388,13 @@ export async function POST(req: Request) {
     let partialChecks = 0;
 
     const effectivePsiKey = psiKey || process.env.GOOGLE_PAGESPEED_API_KEY || "";
+    const deadline = startedAt + AUDIT_BUDGET_MS;
 
     for (let i = 0; i < pageUrls.length; i += 3) {
       // Past the time budget: mark every remaining page with a reason
       // instead of letting the platform kill the whole request. The
       // dashboard still reports whatever already finished.
-      if (Date.now() - startedAt > AUDIT_BUDGET_MS) {
+      if (Date.now() >= deadline) {
         for (const url of pageUrls.slice(i)) {
           results.push({
             url,
@@ -402,11 +408,29 @@ export async function POST(req: Request) {
         break;
       }
 
+      // Squeeze each page's own timeouts to fit the time left, so in-flight
+      // calls die just before the deadline instead of past the platform
+      // limit. Full envelope (35s + 1 retry) only when time is plentiful.
+      const timeLeftMs = deadline - Date.now();
+      const relaxed = timeLeftMs > 45000;
+      const psiOpts: PageSpeedOptions = relaxed
+        ? {}
+        : {
+            timeoutMs: Math.max(8000, Math.min(20000, timeLeftMs - 3000)),
+            retries: 0,
+          };
+      const fetchTimeoutMs = relaxed
+        ? undefined
+        : Math.max(5000, Math.min(12000, timeLeftMs - 3000));
+
       const batch = pageUrls.slice(i, i + 3);
 
       await Promise.all(
         batch.map((url) =>
-          auditSinglePage(url, effectivePsiKey).then((result) => {
+          auditSinglePage(url, effectivePsiKey, {
+            psi: psiOpts,
+            fetchTimeoutMs,
+          }).then((result) => {
             results.push({
               url: result.url,
               status: result.status,
@@ -414,6 +438,7 @@ export async function POST(req: Request) {
               overallScore: result.overallScore,
               psiMetrics: result.psiMetrics,
               error: result.error,
+              psiError: result.psiError,
               checks: result.checks,
             });
 

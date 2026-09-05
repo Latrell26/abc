@@ -1,7 +1,10 @@
 import { load } from "cheerio";
 import type { CheckStatus } from "@/lib/types";
 
-export async function fetchHTML(url: string): Promise<FetchHTMLResult> {
+export async function fetchHTML(
+  url: string,
+  timeoutMs = 12000
+): Promise<FetchHTMLResult> {
   try {
     const res = await fetch(url, {
       headers: {
@@ -11,8 +14,9 @@ export async function fetchHTML(url: string): Promise<FetchHTMLResult> {
           "text/html,application/xml,application/json;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
       },
       // A hung page must never stall its whole batch — the audit route
-      // works under a hard serverless time budget (see route.ts).
-      signal: AbortSignal.timeout(12000),
+      // works under a hard serverless time budget (see route.ts) and may
+      // pass a shorter deadline-driven timeout.
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     if (!res.ok) {

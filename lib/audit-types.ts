@@ -41,6 +41,8 @@ export interface AuditPageSummary {
   checks: Partial<Record<CheckId, CheckStatus>>;
   /** Why this page failed, e.g. "HTTP 403", a fetch timeout, or a time-budget skip. */
   error?: string;
+  /** Why PageSpeed returned no score for this page, if it didn't. */
+  psiError?: string;
 }
 
 export interface AuditResult {
@@ -59,6 +61,12 @@ export interface AuditResult {
    * place of the generic copy.
    */
   failureReason?: string;
+  /**
+   * Why no page produced a PageSpeed score (most common per-page reason).
+   * Set when pageSpeedScore is -1; the dashboard renders it next to the
+   * speed gauge instead of leaving a bare "-1".
+   */
+  pageSpeedError?: string;
   /**
    * Per-page breakdown for the `comparePages` tool. Optional so audits
    * stored before this field existed still load (the tool then takes its

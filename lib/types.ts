@@ -40,4 +40,9 @@ export interface PsiResult {
   overallScore: number;
   pageSpeedScore: number;
   psiMetrics: PsiMetric[];
+  /**
+   * Human-legible reason when the PageSpeed call failed (timeout, HTTP
+   * status, missing score) — surfaced on the dashboard instead of a bare -1.
+   */
+  error?: string;
 }
