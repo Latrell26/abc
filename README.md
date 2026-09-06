@@ -101,8 +101,10 @@ Deferred features and technical non-goals — see [SPEC.md](./SPEC.md).
 The audit route runs on Vercel Fluid compute (`vercel.json`:
 `"fluid": true`, `maxDuration: 300`), so the Hobby ceiling is 300s and
 a full 10-page run with PageSpeed per page fits. The route budgets ~290s
-with an absolute stop at ~294s: each page gets a 70s PageSpeed timeout
-plus one backoff retry, the submitted URL is audited first, and if the
+with an absolute stop at ~294s: the PageSpeed timeout is a rolling
+per-batch cap (up to 120s per page early in the run, squeezed toward 8s
+as the budget shrinks) with one backoff retry for fast failures while
+time is plentiful, the submitted URL is audited first, and if the
 budget ever runs out the remainder still reports checks-only (speed
 `N/A` + reason) — a page is only marked failed when it can't even be
 scraped, with the actual cause recorded per page.

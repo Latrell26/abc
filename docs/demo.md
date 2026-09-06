@@ -27,9 +27,10 @@ jumps to the front of the queue so the trimmed page is never the one you
 asked about, and the dashboard's "Pages audited" table lists all 10 with
 per-page reasons for anything incomplete.
 
-Safety nets (rarely fire with the new ceiling): PageSpeed calls get a 70s
-timeout plus one backoff retry (fast failures only, squeezed further as
-the budget shrinks); if the budget ever runs out, remaining pages are
+Safety nets (rarely fire with the new ceiling): the PageSpeed timeout is a
+rolling per-batch cap — up to 120s per page early in the run, squeezed
+toward 8s as the budget shrinks — plus one backoff retry for fast
+failures while time is plentiful; if the budget ever runs out, remaining pages are
 still fully checked with **speed N/A + reason**; past the hard stop the
 page is marked **failed with its cause**. Total failure still names its
 cause (e.g. `Audit request failed: HTTP 504`); missing speed renders as

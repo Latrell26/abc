@@ -451,24 +451,31 @@ export async function POST(req: Request) {
         break;
       }
 
-      // Squeeze each page's own timeouts to fit the time left, so in-flight
-      // calls die just before the deadline instead of past the platform
-      // limit. Full envelope (70s + 1 retry) only when time is plentiful.
-      // At the 290s budget this almost never fires — it is the final
-      // safety net for pathological sites, not the normal path.
+      // Rolling per-batch cap: the current batch may spend everything above
+      // a cheap floor reserved for the batches still left, so one slow page
+      // can take up to ~2 minutes early in the run while the total can never
+      // exceed the 290s budget (reserves telescope: worst case ≈ 275s, still
+      // under the 294s hard stop). Fast pages finish far under the cap, so a
+      // fast site stays fast — the cap only ever gives slow pages more room
+      // instead of cutting them off at a flat timeout.
       const timeLeftMs = deadline - Date.now();
+      const batchesLeft = Math.ceil((pageUrls.length - i) / 3);
+      const capMs = Math.max(
+        8000,
+        Math.min(120000, timeLeftMs - batchesLeft * 15000),
+      );
 
       // Running on the budget tail: PageSpeed is too slow for what's left,
       // so the rest is audited checks-only (cheap scrapes) — every page
       // still reports, with speed N/A + the reason, instead of dropping
       // pages from the report.
       const checksOnly = timeLeftMs <= 12000;
-      const psiOpts: PageSpeedOptions = timeLeftMs > 45000
-        ? {}
-        : {
-            timeoutMs: Math.max(8000, Math.min(20000, timeLeftMs - 3000)),
-            retries: 0,
-          };
+      // One backoff retry for fast failures (429/5xx) only while time is
+      // plentiful; late batches fail fast so the run stays quick.
+      const psiOpts: PageSpeedOptions = {
+        timeoutMs: capMs,
+        retries: timeLeftMs > 120000 ? 1 : 0,
+      };
       const fetchTimeoutMs = checksOnly
         ? 5000
         : timeLeftMs > 45000
