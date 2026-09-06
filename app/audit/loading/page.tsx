@@ -36,8 +36,8 @@ export default async function AuditLoadingPage({
           </p>
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">
-            Most audits take 15–60 seconds depending on the size of the
-            site — we check every page we can find.
+            Most audits take 15 seconds to a few minutes depending on the size
+            of the site — we check every page we can find.
           </p>
         )}
       </div>

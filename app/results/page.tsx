@@ -165,6 +165,14 @@ export default function ResultsPage() {
   // Pages that never produced results, with the actual reason each one
   // failed (HTTP status, fetch timeout, server time-budget skip).
   const failedPages = (audit.pages ?? []).filter((p) => p.status !== "success");
+  // Full per-page breakdown (successes and failures alike) for the
+  // "Pages audited" table — so users see every discovered page, not just
+  // the ones that failed.
+  const allPages = audit.pages ?? [];
+  const auditedPages = allPages.filter((p) => p.status === "success");
+  const speedMeasuredPages = auditedPages.filter(
+    (p) => p.pageSpeedScore >= 0
+  ).length;
 
   if (pipelineFailed) {
     return (
@@ -370,6 +378,81 @@ export default function ResultsPage() {
           </div>
         )}
 
+        {allPages.length > 0 ? (
+          <section
+            aria-labelledby="pages-heading"
+            className="mt-6 rounded-xl border border-border bg-card shadow-card"
+          >
+            <div className="p-6 pb-3">
+              <h2
+                id="pages-heading"
+                className="text-sm font-semibold text-card-foreground"
+              >
+                Pages audited — {auditedPages.length} of {totalPages}
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Every discovered page with its per-page result — speed
+                measured on {speedMeasuredPages} of {auditedPages.length}.
+              </p>
+            </div>
+            <div className="overflow-x-auto px-6 pb-6">
+              <table className="w-full min-w-[38rem] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th scope="col" className="py-2 pr-4 font-medium">
+                      Page
+                    </th>
+                    <th scope="col" className="py-2 pr-4 font-medium">
+                      Overall
+                    </th>
+                    <th scope="col" className="py-2 pr-4 font-medium">
+                      Speed
+                    </th>
+                    <th scope="col" className="py-2 font-medium">
+                      Note
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allPages.map((page) => {
+                    const checkValues = Object.values(page.checks ?? {});
+                    const passedCount = checkValues.filter(
+                      (s) => s === "pass"
+                    ).length;
+                    return (
+                      <tr
+                        key={page.url}
+                        className="border-b border-border/60 last:border-0"
+                      >
+                        <td className="py-2.5 pr-4 font-medium break-all text-card-foreground">
+                          {page.url}
+                        </td>
+                        <td className="py-2.5 pr-4 tabular-nums text-card-foreground">
+                          {page.overallScore >= 0 ? page.overallScore : "—"}
+                        </td>
+                        <td className="py-2.5 pr-4 tabular-nums text-card-foreground">
+                          {page.pageSpeedScore >= 0
+                            ? page.pageSpeedScore
+                            : "N/A"}
+                        </td>
+                        <td className="py-2.5 text-muted-foreground">
+                          {page.status !== "success"
+                            ? (page.error ?? "Audit failed")
+                            : page.pageSpeedScore < 0
+                              ? (page.psiError ?? "Speed not measured")
+                              : checkValues.length > 0
+                                ? `${passedCount}/${checkValues.length} checks pass`
+                                : ""}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
         <div className="mt-6 grid w-full gap-3 lg:grid-cols-3">
           <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card p-6 shadow-card lg:col-span-1">
             <div className="flex items-center justify-center">
@@ -445,6 +528,16 @@ export default function ResultsPage() {
             <p className="text-xs text-muted-foreground">
               Lab metrics from Google PageSpeed Insights
             </p>
+            {auditedPages.length > 0 &&
+            speedMeasuredPages < auditedPages.length ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Speed measured on {speedMeasuredPages} of{" "}
+                {auditedPages.length}{" "}
+                {auditedPages.length === 1 ? "page" : "pages"} — the remaining
+                PageSpeed calls were skipped as the server time budget ran
+                out.
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="mt-6 grid w-full gap-6 lg:grid-cols-[auto_1fr] lg:items-center">

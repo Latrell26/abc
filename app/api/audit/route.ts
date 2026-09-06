@@ -7,16 +7,25 @@ import type { PageSpeedOptions, PsiResult } from "@/lib/psi";
 const MAX_PAGES = 10;
 
 /**
- * Vercel's serverless functions cap out at 60s (see vercel.json), and the
- * audit does sequential PSI lab runs (~10-25s each). This budget stops the
- * route launching new batches before the platform can kill the request —
- * remaining pages are marked with a reason instead of the whole run dying.
+ * Vercel's Hobby plan runs Fluid compute with a 300s ceiling (see
+ * vercel.json `fluid: true` + `maxDuration: 300`); a 10-page run needs
+ * roughly 60-180s of sequential PSI lab time at 3 concurrent. This budget
+ * leaves ~10s of platform margin so the last in-flight batch can land —
+ * remaining pages report with a reason instead of the whole run dying at
+ * FUNCTION_INVOCATION_TIMEOUT.
  */
-const AUDIT_BUDGET_MS = 50000;
+const AUDIT_BUDGET_MS = 290000;
+
+/**
+ * Absolute stop for the checks-only tail (~6s before the platform wall).
+ * If even cheap scrapes can't finish by here, leftover pages are failed
+ * with a reason rather than letting the platform kill the whole run.
+ */
+const ABSOLUTE_CUTOFF_MS = 294000;
 
 // Belt and suspenders with vercel.json: the explicit export is what the
 // App Router reliably honors for this route's function duration.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /** PSI-less placeholder metrics for pages that never reached PageSpeed. */
 const ERROR_PSI_METRICS = [
@@ -140,7 +149,13 @@ async function fetchRobotsSitemap(domain: string): Promise<string | null> {
 async function auditSinglePage(
   url: string,
   psiKey: string,
-  opts?: { psi?: PageSpeedOptions; fetchTimeoutMs?: number }
+  opts?: {
+    psi?: PageSpeedOptions;
+    fetchTimeoutMs?: number;
+    /** Skip PageSpeed entirely (time-budget tail): fast scrape + checks,
+        speed reports N/A with a reason instead of dropping the page. */
+    skipPageSpeed?: boolean;
+  }
 ): Promise<{
   url: string;
   status: "success" | "failed";
@@ -249,8 +264,19 @@ async function auditSinglePage(
     canonVerdict = "No canonical tag found.";
   }
 
-  // 3. PageSpeed (getPageSpeed never throws — it returns -1 scores on failure)
-  const psiData: PsiResult = await getPageSpeed(url, psiKey, opts?.psi);
+  // 3. PageSpeed (getPageSpeed never throws — it returns -1 scores on failure).
+  // In the time-budget tail it is skipped outright: the page still gets
+  // its full technical checks + check-based score, and psiError says why.
+  const psiData: PsiResult = opts?.skipPageSpeed
+    ? {
+        url,
+        overallScore: -1,
+        pageSpeedScore: -1,
+        psiMetrics: ERROR_PSI_METRICS.map((m) => ({ ...m })),
+        error:
+          "PageSpeed skipped — the server time budget ran out; technical checks still completed.",
+      }
+    : await getPageSpeed(url, psiKey, opts?.psi);
 
   // Per-page overall: prefer the PSI score when available, otherwise derive
   // it from this page's own technical checks so the number always reflects
@@ -357,6 +383,22 @@ export async function POST(req: Request) {
       }
     }
 
+    // The URL the user actually typed is audited first. Automatic
+    // discovery orders by path depth, so a deep submitted page would
+    // otherwise sit at the tail — exactly where a budget trim lands.
+    // Promoting it means any forced trim hits another page, never the
+    // one they asked about. Manual-order audits keep the user's order.
+    if (discovery !== "manual") {
+      const submittedUrl = normalizeUrl(domain).replace(/\/$/, "");
+      const submittedIdx = pageUrls.findIndex(
+        (u) => u.replace(/\/$/, "") === submittedUrl
+      );
+      if (submittedIdx > 0) {
+        const [submitted] = pageUrls.splice(submittedIdx, 1);
+        pageUrls.unshift(submitted);
+      }
+    }
+
     // Cap at 10 pages
     pageUrls = pageUrls.slice(0, MAX_PAGES);
 
@@ -391,10 +433,11 @@ export async function POST(req: Request) {
     const deadline = startedAt + AUDIT_BUDGET_MS;
 
     for (let i = 0; i < pageUrls.length; i += 3) {
-      // Past the time budget: mark every remaining page with a reason
-      // instead of letting the platform kill the whole request. The
-      // dashboard still reports whatever already finished.
-      if (Date.now() >= deadline) {
+      // Absolute stop (~6s before the platform wall at 300s): even cheap
+      // scrapes must not risk a platform kill, which would surface as a
+      // generic total failure and lose all finished pages. Anything still
+      // pending reports as failed with the real reason.
+      if (Date.now() - startedAt >= ABSOLUTE_CUTOFF_MS) {
         for (const url of pageUrls.slice(i)) {
           results.push({
             url,
@@ -402,7 +445,7 @@ export async function POST(req: Request) {
             pageSpeedScore: -1,
             overallScore: -1,
             psiMetrics: ERROR_PSI_METRICS.map((m) => ({ ...m })),
-            error: "Skipped: audit time budget (50s) exceeded on the server.",
+            error: "Skipped: Vercel function time limit reached.",
           });
         }
         break;
@@ -411,17 +454,26 @@ export async function POST(req: Request) {
       // Squeeze each page's own timeouts to fit the time left, so in-flight
       // calls die just before the deadline instead of past the platform
       // limit. Full envelope (35s + 1 retry) only when time is plentiful.
+      // At the 290s budget this almost never fires — it is the final
+      // safety net for pathological sites, not the normal path.
       const timeLeftMs = deadline - Date.now();
-      const relaxed = timeLeftMs > 45000;
-      const psiOpts: PageSpeedOptions = relaxed
+
+      // Running on the budget tail: PageSpeed is too slow for what's left,
+      // so the rest is audited checks-only (cheap scrapes) — every page
+      // still reports, with speed N/A + the reason, instead of dropping
+      // pages from the report.
+      const checksOnly = timeLeftMs <= 12000;
+      const psiOpts: PageSpeedOptions = timeLeftMs > 45000
         ? {}
         : {
             timeoutMs: Math.max(8000, Math.min(20000, timeLeftMs - 3000)),
             retries: 0,
           };
-      const fetchTimeoutMs = relaxed
-        ? undefined
-        : Math.max(5000, Math.min(12000, timeLeftMs - 3000));
+      const fetchTimeoutMs = checksOnly
+        ? 5000
+        : timeLeftMs > 45000
+          ? undefined
+          : Math.max(5000, Math.min(12000, timeLeftMs - 3000));
 
       const batch = pageUrls.slice(i, i + 3);
 
@@ -430,6 +482,7 @@ export async function POST(req: Request) {
           auditSinglePage(url, effectivePsiKey, {
             psi: psiOpts,
             fetchTimeoutMs,
+            skipPageSpeed: checksOnly,
           }).then((result) => {
             results.push({
               url: result.url,

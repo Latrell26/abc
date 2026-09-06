@@ -96,6 +96,17 @@ Deferred features and technical non-goals — see [SPEC.md](./SPEC.md).
 | Database | None (MVP) — audits are ephemeral |
 | Hosting | Vercel |
 
+## Deployment notes
+
+The audit route runs on Vercel Fluid compute (`vercel.json`:
+`"fluid": true`, `maxDuration: 300`), so the Hobby ceiling is 300s and
+a full 10-page run with PageSpeed per page fits. The route budgets ~290s
+with an absolute stop at ~294s: each page gets a 35s PageSpeed timeout
+plus one backoff retry, the submitted URL is audited first, and if the
+budget ever runs out the remainder still reports checks-only (speed
+`N/A` + reason) — a page is only marked failed when it can't even be
+scraped, with the actual cause recorded per page.
+
 ## Getting Started
 
 ```bash
