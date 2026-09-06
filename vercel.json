@@ -1,7 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  // Fluid compute is what gives the Hobby plan its 300s function ceiling
-  // (default-on for new projects; this pins it on per deployment).
   "fluid": true,
   "functions": {
     "app/api/chat/route.ts": {
@@ -9,8 +7,6 @@
       "maxDuration": 60
     },
     "app/api/audit/route.ts": {
-      // A 10-page run needs ~60-180s of PageSpeed lab time (3 concurrent);
-      // 300s (Hobby max with Fluid) fits it with room to spare.
       "maxDuration": 300
     }
   }

@@ -453,7 +453,7 @@ export async function POST(req: Request) {
 
       // Squeeze each page's own timeouts to fit the time left, so in-flight
       // calls die just before the deadline instead of past the platform
-      // limit. Full envelope (35s + 1 retry) only when time is plentiful.
+      // limit. Full envelope (70s + 1 retry) only when time is plentiful.
       // At the 290s budget this almost never fires — it is the final
       // safety net for pathological sites, not the normal path.
       const timeLeftMs = deadline - Date.now();

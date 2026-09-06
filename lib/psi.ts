@@ -65,13 +65,18 @@ function extractMetric(
 }
 
 export interface PageSpeedOptions {
-  /** Per-attempt timeout in ms. Default 35000. */
+  /** Per-attempt timeout in ms. Default 70000. */
   timeoutMs?: number;
   /** Extra attempts after the first failure. Default 1. */
   retries?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 35000;
+// Generous single attempt: under the 300s Fluid ceiling a 70s PageSpeed
+// lab run is affordable, and a run that is merely slow succeeds in the
+// one attempt rather than dying at 35s and surfacing N/A. Timed-out
+// attempts are still not retried (a stuck run is unlikely to clear on a
+// second try); only fast failures (429/5xx) get the backoff retry.
+const DEFAULT_TIMEOUT_MS = 70000;
 const DEFAULT_RETRIES = 1;
 const RETRY_WAIT_MS = 2000;
 const MAX_RETRY_AFTER_MS = 10000;
