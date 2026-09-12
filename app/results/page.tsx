@@ -114,6 +114,10 @@ export default function ResultsPage() {
   const router = useRouter();
 
   if (audit === undefined) {
+    // Skeleton mirrors the dashboard layout block-for-block (header →
+    // score grid → checks grid → speed section) so the skeleton-to-content
+    // handoff doesn't shift layout (CLS). Same grid breakpoints and
+    // comparable heights as the real sections below.
     return (
       <div className="flex flex-col gap-8" aria-busy="true" aria-label="Loading audit results">
         <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
@@ -125,13 +129,14 @@ export default function ResultsPage() {
           <div className="h-32 animate-pulse rounded-xl bg-muted" />
           <div className="h-32 animate-pulse rounded-xl bg-muted" />
         </div>
+        <div className="h-48 animate-pulse rounded-xl bg-muted" aria-hidden="true" />
       </div>
     );
   }
 
   if (audit === null) {
     return (
-      <div className="flex flex-col items-center gap-8 py-12 text-center">
+      <div className="flex flex-col items-center gap-8 py-12 text-center motion-safe:animate-in motion-safe:fade-in-0">
         <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold tracking-wide text-primary uppercase">
           No audit yet
         </p>
@@ -142,13 +147,32 @@ export default function ResultsPage() {
           There are no audit results to show. Enter your website URL on the
           home page and we will check its SEO health, speed, and what to fix.
         </p>
-        <div className="mt-6">
+        <div className="flex flex-col items-center gap-4">
           <Link
             href="/"
             className="px-4 py-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             Run an audit
           </Link>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              No site handy? Try an example:
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Link
+                href="/audit/loading?url=https%3A%2F%2Fexample.com"
+                className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-card-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                example.com
+              </Link>
+              <Link
+                href="/audit/loading?url=https%3A%2F%2Fwww.wikipedia.org"
+                className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-card-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                wikipedia.org
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );

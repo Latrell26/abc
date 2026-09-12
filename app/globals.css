@@ -48,6 +48,8 @@
   html {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* iOS Safari: never auto-shrink text after orientation change. */
+    -webkit-text-size-adjust: 100%;
     @apply font-sans;
   }
 
@@ -55,10 +57,25 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    /* Kill 300ms tap delay / double-tap-zoom fighting the send/stop/
+       retry buttons on mobile Safari. */
+    touch-action: manipulation;
+    /* Horizontal rubber-band on the page fights the chat's own scroll
+       container; contain it at the document level. */
+    overscroll-behavior-x: none;
     @apply bg-background text-foreground;
   }
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /* Scrollable chat log: momentum scrolling on iOS, and its own
+     scroll chain — rubber-band / auto-scroll stays inside the log and
+     never yanks the whole page (or fights stick-to-bottom). */
+  [data-chat-scroll] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -25,6 +25,14 @@ import { cn } from "@/lib/utils";
 
 const AUTO_START_PROMPT =
   "Summarize this audit in plain language for a non-technical site owner.";
+
+// Click-to-fill starters: a designed empty state, not a dead end. Filling
+// the input (not auto-sending) keeps the user in control.
+const EXAMPLE_PROMPTS = [
+  "What should I fix first?",
+  "Which page has the worst heading structure?",
+  "Explain my speed score in plain language",
+] as const;
 
 // Aliases so the rest of this file reads naturally; the canonical values
 // live in audit-storage (shared with clearAuditStorage).
@@ -278,8 +286,8 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
   const audit = auditProp ?? loadAuditResult();
   const auditDomain = audit?.url ?? "";
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const stickToBottomRef = useRef(true);
-  const [wordCountCurrent, setWordCountCurrent] = useState(0);
 
   const { messages, sendMessage, stop, status, error, setMessages, clearError } =
     useChat({
@@ -374,34 +382,18 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
     }
   }, [messages]);
 
-  // Track word count in the latest assistant message for the 250-word limit.
-  useEffect(() => {
-    const countWords = (text: string) =>
-      text
-        .replace(/<[^>]*>/g, "")
-        .match(/\S+/g)?.length || 0;
-
-    const updateWordCount = () => {
-      const lastMessage = messages[messages.length - 1];
-      if (!lastMessage || lastMessage.role !== "assistant") {
-        setWordCountCurrent(0);
-        return;
-      }
-      const text = lastMessage.parts
-        .filter((part) => part.type === "text")
-        .map((part) => part.text)
-        .join(" ");
-      const count = countWords(text);
-      setWordCountCurrent(count);
-    };
-
-    updateWordCount();
-    const handler = () => updateWordCount();
-    const observer = new MutationObserver(handler);
-    const target = scrollRef.current;
-    if (target) observer.observe(target, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [messages, wordCountCurrent]);
+  // Word count of the latest assistant message (250-word summary budget).
+  // Pure derivation from `messages` — no effect, no observer, so streaming
+  // updates can't loop back into setState.
+  const wordCountCurrent = useMemo(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.role !== "assistant") return 0;
+    const text = lastMessage.parts
+      .filter((part) => part.type === "text")
+      .map((part) => (part as { text: string }).text)
+      .join(" ");
+    return text.replace(/<[^>]*>/g, "").match(/\S+/g)?.length ?? 0;
+  }, [messages]);
 
   function handleScroll() {
     const el = scrollRef.current;
@@ -428,11 +420,24 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
 
   // Re-sends the user's last question so a failed tool call runs again.
   // The errored assistant message stays visible as history; the retry
-  // produces a fresh answer below it.
+  // produces a fresh answer below it. Guarded by `ready` so a double-click
+  // while a retry is in flight is a no-op instead of a duplicate request.
   function handleToolRetry() {
     if (!ready) return;
     const text = lastUserText(messages);
     if (!text) return;
+    void sendMessage({ text }, audit ? { body: { audit } } : undefined);
+  }
+
+  // Top-level stream failure (network kill mid-stream, 429, provider
+  // outage): retry re-sends ONLY the last user question with the same
+  // audit payload — never the whole conversation. Clears the surfaced
+  // error first so a second click can't stack retries.
+  function handleErrorRetry() {
+    if (!ready) return;
+    const text = lastUserText(messages);
+    if (!text) return;
+    clearError();
     void sendMessage({ text }, audit ? { body: { audit } } : undefined);
   }
 
@@ -466,14 +471,33 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
           aria-live="polite"
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex min-h-64 max-h-96 flex-col gap-4 overflow-y-auto px-5 py-4"
+          data-chat-scroll
+          className="flex min-h-64 max-h-[60dvh] flex-col gap-4 overflow-y-auto px-5 py-4 sm:max-h-96"
         >
           {messages.length === 0 && !isGenerating && (
-            <p className="text-sm text-muted-foreground">
-              Ask anything about your audit — what it means, what to fix first,
-              or how to improve your score. You can also ask me to compare
-              pages, e.g. “which page has the worst heading structure?”.
-            </p>
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                Ask anything about your audit — what it means, what to fix
+                first, or how to improve your score. You can also ask me to
+                compare pages, e.g. “which page has the worst heading
+                structure?”.
+              </p>
+              <div className="flex flex-wrap gap-2" aria-label="Example questions">
+                {EXAMPLE_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => {
+                      setInput(prompt);
+                      inputRef.current?.focus();
+                    }}
+                    className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-card-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {messages.map((message) => {
@@ -580,15 +604,33 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 border-t border-danger/20 bg-danger-bg px-5 py-3 text-sm text-danger"
+          className="border-t border-danger/20 bg-danger-bg px-5 py-3 text-sm text-danger motion-safe:animate-in motion-safe:fade-in-0"
         >
-          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p className="min-w-0 flex-1">
-            {error.message || "Something went wrong. Please try again."}
+          <div className="flex items-start gap-2">
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <p className="min-w-0 flex-1">
+              {error.message || "Something went wrong. Please try again."}
+            </p>
+          </div>
+          <p className="mt-1 pl-6 text-xs text-danger/80">
+            Retry re-sends only your last question with the same audit data —
+            the rest of the conversation is untouched.
           </p>
-          <Button variant="ghost" size="sm" onClick={clearError}>
-            Dismiss
-          </Button>
+          <div className="mt-2 flex gap-2 pl-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleErrorRetry}
+              disabled={!ready}
+              className="h-7 border-danger/30 bg-transparent text-xs text-danger hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+            >
+              <RotateCcw aria-hidden="true" className="size-3" />
+              Retry last message
+            </Button>
+            <Button variant="ghost" size="sm" onClick={clearError} className="h-7 text-xs">
+              Dismiss
+            </Button>
+          </div>
         </div>
       )}
 
@@ -601,12 +643,16 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
         </label>
         <input
           id="chat-input"
+          ref={inputRef}
           type="text"
           value={input}
+          suppressHydrationWarning
           onChange={(event) => setInput(event.target.value)}
           disabled={!ready}
           placeholder="Ask about your audit…"
-          className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+          autoComplete="off"
+          enterKeyHint="send"
+          className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:text-sm"
         />
         {isGenerating ? (
           <Button

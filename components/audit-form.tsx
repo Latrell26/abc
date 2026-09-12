@@ -89,6 +89,7 @@ export function AuditForm() {
             id="audit-url"
             type="text"
             value={url}
+            suppressHydrationWarning
             onChange={(event) => {
               setUrl(event.target.value);
               if (error) setError(null);

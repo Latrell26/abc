@@ -103,7 +103,7 @@ export default function AiSummaryPage() {
 
   if (audit === null) {
     return (
-      <div className="flex flex-col items-center gap-6 py-12 text-center">
+      <div className="flex flex-col items-center gap-6 py-12 text-center motion-safe:animate-in motion-safe:fade-in-0">
         <p className="mb-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           No audit yet
         </p>
@@ -114,12 +114,33 @@ export default function AiSummaryPage() {
           Run an SEO audit first — then the assistant can explain your results
           in plain language and tell you what to fix.
         </p>
-        <Link
-          href="/"
-          className="px-4 py-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Run an audit
-        </Link>
+        <div className="flex flex-col items-center gap-4">
+          <Link
+            href="/"
+            className="px-4 py-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Run an audit
+          </Link>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              No site handy? Try an example:
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Link
+                href="/audit/loading?url=https%3A%2F%2Fexample.com"
+                className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-card-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                example.com
+              </Link>
+              <Link
+                href="/audit/loading?url=https%3A%2F%2Fwww.wikipedia.org"
+                className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-card-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                wikipedia.org
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
