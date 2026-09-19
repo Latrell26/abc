@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import ReactMarkdown, { type Components } from "react-markdown";
-import { ChevronDown, Loader2, RotateCcw, Send, Sparkles, Square, TriangleAlert, ArrowLeftRight } from "lucide-react";
+import { ChevronDown, Loader2, RotateCcw, Sparkles, TriangleAlert, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChatActionButton } from "@/components/ui/ChatActionButton";
 import type { AuditResult } from "@/lib/audit-types";
 import {
   CHAT_DOMAIN_KEY,
@@ -42,9 +43,9 @@ const STORAGE_KEY = CHAT_STORAGE_KEY;
 const DOMAIN_KEY = CHAT_DOMAIN_KEY;
 
 // Module-level guard so the summary is only auto-started once per page
-// load (React StrictMode re-runs effects in development). Reset on
-// unmount so a fresh audit on a new domain can auto-start again.
-let autoStarted = false;
+// load. We use a ref instead of a module-level variable because React
+// StrictMode re-runs effects in development, which would reset a module-level
+// counter. A ref persists across re-renders without triggering a re-run.
 
 const markdownComponents: Components = {
   p: ({ children }) => <p>{children}</p>,
@@ -321,7 +322,6 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) {
             saved = parsed;
-            autoStarted = true;
           }
         }
       } catch {
@@ -336,28 +336,11 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
       } catch {
         // Storage may be unavailable; nothing to clear.
       }
-      autoStarted = false;
     }
     if (saved) {
       setMessages(saved);
-    } else if (!autoStarted) {
-      autoStarted = true;
-      // Attach the real audit (if any) so the summary is grounded in
-      // the user's actual results instead of mock data.
-      void sendMessage(
-        { text: AUTO_START_PROMPT },
-        audit ? { body: { audit } } : undefined
-      );
     }
   }, [setMessages, sendMessage, audit, auditDomain]);
-
-  // Reset the module-level guard on unmount so navigating away and
-  // auditing a new domain always gets a fresh auto-start.
-  useEffect(() => {
-    return () => {
-      autoStarted = false;
-    };
-  }, []);
 
   // Persist the conversation (tagged with the audit domain) so it
   // survives navigation within the tab.
@@ -415,7 +398,7 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
     const text = input.trim();
     if (!text || !ready) return;
     setInput("");
-    void sendMessage({ text }, audit ? { body: { audit } } : undefined);
+    return sendMessage({ text }, audit ? { body: { audit } } : undefined);
   }
 
   // Re-sends the user's last question so a failed tool call runs again.
@@ -500,11 +483,13 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
             </div>
           )}
 
-          {messages.map((message) => {
+          {messages.map((message, index) => {
             const isUser = message.role === "user";
+            // Use a composite key to ensure uniqueness even if IDs collide
+            const uniqueKey = message.id ? `${message.id}-${index}` : `${index}`;
             return (
               <div
-                key={message.id}
+                key={uniqueKey}
                 className={cn(
                   "flex w-full gap-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1",
                   isUser ? "justify-end" : "justify-start motion-safe:zoom-in-98"
@@ -652,32 +637,31 @@ export function Chat({ audit: auditProp }: { audit?: AuditResult | null }) {
           placeholder="Ask about your audit…"
           autoComplete="off"
           enterKeyHint="send"
-          className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:text-sm"
+          className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 hover:bg-muted/50 disabled:opacity-50 sm:text-sm"
         />
         {isGenerating ? (
-          <Button
+          <ChatActionButton
             key="stop"
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => void stop()}
-            aria-label="Stop generating"
-            title="Stop generating"
-            className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95"
-          >
-            <Square aria-hidden="true" className="size-3.5" />
-          </Button>
+            onAction={async () => {
+              stop();
+              return { success: true };
+            }}
+            disabled={false}
+            label="Stop"
+          />
         ) : (
-          <Button
+          <ChatActionButton
             key="send"
-            type="submit"
-            size="icon"
+            onAction={async () => {
+    const text = input.trim();
+    if (!text || !ready) return { success: true };
+    setInput("");
+    await sendMessage({ text }, audit ? { body: { audit } } : undefined);
+    return { success: true };
+  }}
             disabled={!ready || input.trim().length === 0}
-            aria-label="Send message"
-            className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95"
-          >
-            <Send aria-hidden="true" className="size-4" />
-          </Button>
+            label="Send message"
+          />
         )}
       </form>
     </section>
