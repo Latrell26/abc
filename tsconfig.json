@@ -26,17 +26,25 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "types": ["vitest/globals", "@testing-library/jest-dom", "next", "next/image-types/global"]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "playwright.config.ts"
   ],
-"exclude": [
+  "exclude": [
     "node_modules",
-    "playground"
+    "playground",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "e2e/**",
+    "vitest.setup.tsx"
   ]
 }
