@@ -27,7 +27,7 @@
         "./*"
       ]
     },
-    "types": ["vitest/globals", "@testing-library/jest-dom", "next", "next/image-types/global"]
+    "types": ["@testing-library/jest-dom", "next", "next/image-types/global"]
   },
   "include": [
     "next-env.d.ts",
