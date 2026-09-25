@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { Chat } from "@/components/chat";
-import type { AuditResult } from "@/lib/audit-types";
+import type { AuditResult } from "@/lib/audit-types"; 
 
 const mockAudit: AuditResult = {
   url: "https://example.com",
