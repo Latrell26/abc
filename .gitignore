@@ -142,3 +142,6 @@ test-results/
 .opencode/bun.lock
 
 .vercel
+
+/playwright-report/
+/test-results/
