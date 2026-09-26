@@ -310,7 +310,19 @@ async function auditSinglePage(
 export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
-    const body = await req.json();
+    let body: { domain?: string; manualUrls?: string[]; psiKey?: string } = {
+      domain: "",
+      manualUrls: [],
+      psiKey: "",
+    };
+    try {
+      const parsed = await req.json();
+      if (parsed && typeof parsed === "object") {
+        body = { ...body, ...parsed };
+      }
+    } catch {
+      // Empty or invalid body - use defaults
+    }
     const { domain, manualUrls, psiKey } = body;
 
     if (!domain) {

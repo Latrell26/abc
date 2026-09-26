@@ -3,7 +3,7 @@ import { Gauge, ListChecks, Sparkles, FileText, Heading1, Image, Link2 } from "l
 import { AuditForm } from "@/components/audit-form";
 
 export const metadata: Metadata = {
-  title: "Home",
+  title: "SEO Audit Dashboard",
   description: "Audit any website's SEO health and get plain-language fixes.",
 };
 
