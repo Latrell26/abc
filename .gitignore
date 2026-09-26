@@ -131,6 +131,10 @@ dist
 # opencode local history
 .history
 
+# Playwright test artifacts
+playwright-report/
+test-results/
+
 # opencode plugin scaffold (keep npm files and deps out of git)
 .opencode/node_modules/
 .opencode/package.json
